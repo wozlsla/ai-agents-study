@@ -52,7 +52,7 @@ session = st.session_state["session"]
 
 def _get_web_search_query(message):
     action = message.get("action")
-    
+
     if isinstance(action, dict):
         query = action.get("query")
         if isinstance(query, str) and query.strip():
@@ -84,11 +84,32 @@ async def paint_history():
                 st.write(f'[웹 검색: "{_get_web_search_query(m)}"]')
 
 
+def update_status(status_container, event):
+
+    status_messages = {
+        "response.web_search_call.completed": ("✅ Web search completed.", "complete"),
+        "response.web_search_call.in_progress": (
+            "🔍 Starting web search...",
+            "running",
+        ),
+        "response.web_search_call.searching": (
+            "🔍 Web search in progress...",
+            "running",
+        ),
+        "response.completed": (" ", "complete"),
+    }
+
+    if event in status_messages:
+        label, state = status_messages[event]
+        status_container.update(label=label, state=state)
+
+
 asyncio.run(paint_history())
 
 
 async def run_agent(message):
     with st.chat_message("ai"):
+        status_container = st.status("⏳", expanded=False)
         text_placeholder = st.empty()
         response = ""
 
@@ -100,6 +121,9 @@ async def run_agent(message):
 
         async for event in stream.stream_events():
             if event.type == "raw_response_event":
+
+                update_status(status_container, event.data.type)
+
                 if event.data.type == "response.output_text.delta":
                     response += event.data.delta
                     text_placeholder.write(response)
